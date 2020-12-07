@@ -9,7 +9,7 @@ defmodule Bags do
         |> String.split(" ")
 
       case split_str do
-        [num, desc, colour, _bags] -> [[num, desc <> " " <> colour] | acc]
+        [num, desc, colour, _bags] -> [[String.to_integer(num), desc <> " " <> colour] | acc]
         [_no, _other, _bags] -> acc
       end
     end)
@@ -57,6 +57,45 @@ defmodule Bags do
     Enum.reduce(graph, [], fn {outer, inner, _num}, acc ->
       case Enum.member?(inners, inner) && !Enum.member?(ignored ++ acc, outer) do
         true -> [outer | acc]
+        false -> acc
+      end
+    end)
+  end
+
+  def solve2() do
+    get_bag_graph()
+    |> do_count_all_descendants("shiny gold", [], 1)
+    |> Kernel.-(1)
+  end
+
+  def do_count_all_descendants(graph, outer, already_found, cur_multiplier) do
+    new_inners = find_inners_for_outer_with_nums(graph, outer, already_found)
+
+toto =    case new_inners do
+      [] ->
+        cur_multiplier
+
+      new_inners_int ->
+        Enum.map(new_inners_int, fn {inner, num} ->
+          do_count_all_descendants(
+            graph,
+            inner,
+            already_found ++ new_inners_int,
+            num
+          )
+        end)
+        |> Enum.sum()
+        |> Kernel.*(cur_multiplier)
+              |> Kernel.+(cur_multiplier)
+    end
+    IO.inspect({toto, outer, cur_multiplier})
+    toto
+  end
+
+  def find_inners_for_outer_with_nums(graph, target_outer, ignored) do
+    Enum.reduce(graph, [], fn {outer, inner, num}, acc ->
+      case target_outer == outer && !Enum.member?(ignored ++ acc, inner) do
+        true -> [{inner, num} | acc]
         false -> acc
       end
     end)
