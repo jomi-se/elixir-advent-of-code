@@ -1,4 +1,4 @@
-defmodule CodeChecker do
+defmodule CodeChecker2 do
   def read_file() do
     {:ok, contents} = File.read("input/8.txt")
 
@@ -32,6 +32,8 @@ defmodule CodeChecker do
     end
   end
 
+
+  @spec next_operation(any, any, map, any) :: any
   def next_operation(acc, target_pos, instruction_map, has_switched) do
     next = Map.get(instruction_map, target_pos)
 
