@@ -8,16 +8,13 @@ defmodule Jolts do
   end
 
   def part_1 do
-    result = read_file!()
-    # func(result, 0, [])
-
     {_, result} =
-      Enum.reduce(result, {0, %{1 => 0, 2 => 0, 3 => 1}}, fn adapter, {cur_jolt, map} ->
+      read_file!()
+      |> Enum.reduce({0, %{1 => 0, 2 => 0, 3 => 1}}, fn adapter, {cur_jolt, map} ->
         diff = adapter - cur_jolt
         {adapter, Map.update!(map, diff, &(&1 + 1))}
       end)
 
-    IO.inspect(result)
     result[1] * result[3]
   end
 
