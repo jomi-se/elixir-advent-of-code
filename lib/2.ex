@@ -9,23 +9,43 @@ defmodule RPS do
     end)
   end
 
+  def str_to_ascii(str) do
+    [first] = str |> to_charlist()
+    first
+  end
+
+  def ascii_to_str(num), do: List.to_string([num])
+
+  def get_winner(char) do
+    base_a = str_to_ascii("A")
+    ascii_char = str_to_ascii(char)
+
+    winner_ascii = rem(ascii_char - base_a + 1, 3)
+    ascii_to_str(winner_ascii + base_a)
+  end
+
+  def get_loser(char) do
+    base_a = str_to_ascii("A")
+    ascii_char = str_to_ascii(char)
+
+    loser_ascii = rem(ascii_char - base_a - 1 + 3, 3)
+    ascii_to_str(loser_ascii + base_a)
+  end
+
   def translate(char)
   def translate("X"), do: "A"
   def translate("Y"), do: "B"
   def translate("Z"), do: "C"
 
   def translate2(char_pair)
-  def translate2({"A", "X"}), do: "C"
-  def translate2({"A", "Y"}), do: "A"
-  def translate2({"A", "Z"}), do: "B"
 
-  def translate2({"B", "X"}), do: "A"
-  def translate2({"B", "Y"}), do: "B"
-  def translate2({"B", "Z"}), do: "C"
-
-  def translate2({"C", "X"}), do: "B"
-  def translate2({"C", "Y"}), do: "C"
-  def translate2({"C", "Z"}), do: "A"
+  def translate2({enemy, outcome}) do
+    case outcome do
+      "X" -> get_loser(enemy)
+      "Z" -> get_winner(enemy)
+      _ -> enemy
+    end
+  end
 
   def move_score(char)
   def move_score("A"), do: 1
@@ -33,14 +53,15 @@ defmodule RPS do
   def move_score("C"), do: 3
 
   def compute_match(pair)
-  # Wins
-  def compute_match({"A", "B"}), do: 6
-  def compute_match({"B", "C"}), do: 6
-  def compute_match({"C", "A"}), do: 6
   # draws
   def compute_match({enemy, me}) when enemy === me, do: 3
-  # lose
-  def compute_match(_pair), do: 0
+  # Wins / lose
+  def compute_match({enemy, me}) do
+    case get_winner(enemy) do
+      ^me -> 6
+      _ -> 0
+    end
+  end
 
   def solve1() do
     read_file()
