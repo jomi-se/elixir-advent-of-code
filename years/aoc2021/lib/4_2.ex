@@ -1,4 +1,4 @@
-defmodule SquidBingo do
+defmodule SquidBingo2 do
   def read_file() do
     [numbers | boards] =
       File.read!("./input/4.txt")
