@@ -5,13 +5,6 @@ defmodule DirCrawling do
     |> Enum.map(&String.split(&1, " "))
   end
 
-  def change_dir([".."], rest_commands, current_dir), do: {rest_commands, current_dir}
-
-  def change_dir([dir_name], rest_commands, current_dir) do
-    new_current_dir = Map.fetch!(current_dir.dirs, dir_name)
-    crawler(rest_commands, new_current_dir)
-  end
-
   def list_current_dir([], current_dir), do: {[], current_dir}
 
   def list_current_dir(
@@ -22,7 +15,7 @@ defmodule DirCrawling do
 
     case first do
       "$" ->
-        crawl_dirs([line | rest], current_dir)
+        {[line | rest], current_dir}
 
       _ ->
         case first do
@@ -55,33 +48,33 @@ defmodule DirCrawling do
     IO.inspect({command_line, current_dir})
     [is_command, command | command_rest] = command_line
 
-    case {is_command, command} do
-      {"$", "cd"} ->
-        case command_rest do
-          [".."] ->
-            {rest, nil}
+    {new_rest, new_current_dir} =
+      case {is_command, command} do
+        {"$", "cd"} ->
+          case command_rest do
+            [".."] ->
+              {rest, nil}
 
-          [dir_name] ->
-            new_current_dir = Map.fetch!(current_dir.dirs, dir_name)
-            crawl_dirs(rest, new_current_dir)
-        end
+            [dir_name] ->
+              inner_dir = Map.fetch!(current_dir.dirs, dir_name)
+              {new_rest, new_inner_dir} = crawl_dirs(rest, inner_dir)
 
-      {"$", "ls"} ->
-        list_current_dir(rest, current_dir)
-    end
-  end
+              new_current_dir = %{
+                current_dir
+                | :dirs => %{current_dir.dirs | dir_name => new_inner_dir}
+              }
 
-  def crawler([], current_dir), do: current_dir
+              {new_rest, new_current_dir}
+          end
 
-  def crawler(commands, current_dir) do
-    {rest_commands, new_current_dir} = crawl_dirs(commands, current_dir)
+        {"$", "ls"} ->
+          {rest, new_current_dir} = list_current_dir(rest, current_dir)
+          {rest, new_current_dir}
+      end
 
     case new_current_dir do
-      nil ->
-        crawler(rest_commands, current_dir)
-
-      _ ->
-        crawler(rest_commands, new_current_dir)
+      nil -> {new_rest, current_dir}
+      _ -> crawl_dirs(new_rest, new_current_dir)
     end
   end
 
@@ -108,7 +101,7 @@ defmodule DirCrawling do
     top_dir = %{:name => "/", :dirs => %{}, :files => []}
 
     {[], new_top_dir} =
-      crawler(rest, top_dir)
+      crawl_dirs(rest, top_dir)
       |> IO.inspect()
 
     get_deep_dir_sizes(new_top_dir, %{}, "/")
