@@ -45,7 +45,6 @@ defmodule DirCrawling do
   def crawl_dirs([], current_dir), do: {[], current_dir}
 
   def crawl_dirs([command_line | rest], current_dir) do
-    IO.inspect({command_line, current_dir})
     [is_command, command | command_rest] = command_line
 
     {new_rest, new_current_dir} =
@@ -102,12 +101,27 @@ defmodule DirCrawling do
 
     {[], new_top_dir} =
       crawl_dirs(rest, top_dir)
-      |> IO.inspect()
 
     get_deep_dir_sizes(new_top_dir, %{}, "/")
     |> Map.to_list()
     |> Enum.map(fn {_, size} -> size end)
     |> Enum.filter(fn size -> size <= 100_000 end)
     |> Enum.sum()
+  end
+
+  def solve2() do
+    [["$" | _rest] | rest] = read_file()
+    top_dir = %{:name => "/", :dirs => %{}, :files => []}
+
+    {[], new_top_dir} =
+      crawl_dirs(rest, top_dir)
+
+    sizes_map = get_deep_dir_sizes(new_top_dir, %{}, "/")
+    unused_space = 70000000 - Map.fetch!(sizes_map, "/")
+    needed_space = 30000000 - unused_space
+    sizes_map
+    |> Map.to_list()
+    |> Enum.sort(fn {_, sizeA}, {_, sizeB} -> sizeA <= sizeB end)
+    |> Enum.find(nil, fn {_name, size} -> size >= needed_space end)
   end
 end
