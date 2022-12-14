@@ -42,20 +42,48 @@ defmodule Regolith do
     build_map(rest_rock_lines, acc_map)
   end
 
-  def get_row({x, y}, map, acc) when x > map.max_x + 2 or y > map.max_y + 3, do: Enum.reverse(acc)
+  def find_next_sand_spot({_cur_x, cur_y}, map) when cur_y > map.max_y, do: {:halt, map}
 
-  def get_row({x, y}, map, acc) when x <= map.max_x + 2 do
+  def find_next_sand_spot({cur_x, cur_y}, map) do
+    pos_val = Map.get(map, {cur_x, cur_y})
+
+    if pos_val == "#" do
+      raise "Error with this position, should not be here: #{cur_x}, #{cur_y}"
+    end
+
+    cond do
+      pos_val == "o" ->
+        {:halt, map}
+
+      Map.get(map, {cur_x, cur_y + 1}) == nil ->
+        find_next_sand_spot({cur_x, cur_y + 1}, map)
+
+      Map.get(map, {cur_x - 1, cur_y + 1}) == nil ->
+        find_next_sand_spot({cur_x - 1, cur_y + 1}, map)
+
+      Map.get(map, {cur_x + 1, cur_y + 1}) == nil ->
+        find_next_sand_spot({cur_x + 1, cur_y + 1}, map)
+
+      true ->
+        {:cont, Map.put(map, {cur_x, cur_y}, "o")}
+    end
+  end
+
+  def get_row({x, y}, map, acc) when x > map.max_x + 10 or y > map.max_y + 5,
+    do: Enum.reverse(acc)
+
+  def get_row({x, y}, map, acc) when x <= map.max_x + 10 do
     val =
       case Map.get(map, {x, y}) do
         nil -> "."
-        _value -> "#"
+        value -> value
       end
 
     get_row({x + 1, y}, map, [val | acc])
   end
 
   def get_rows(y, map, acc) do
-    case get_row({map.min_x - 2, y}, map, []) do
+    case get_row({map.min_x - 10, y}, map, []) do
       [] -> Enum.reverse(acc)
       row -> get_rows(y + 1, map, [row | acc])
     end
@@ -71,9 +99,36 @@ defmodule Regolith do
     map
   end
 
+  def step_sand(map, {sand_x, sand_y}, count) do
+    case find_next_sand_spot({sand_x, sand_y}, map) do
+      {:cont, next_map} ->
+        # print_map(next_map)
+        next_map
+        |> step_sand({sand_x, sand_y}, count + 1)
+
+      {:halt, _last_map} ->
+        # print_map(last_map)
+        count
+    end
+  end
+
   def solve1 do
     read_file()
     |> build_map(%{:min_x => 1_000_000, :max_x => 0, :min_y => 10_000_000, :max_y => 0})
-    |> print_map()
+    |> step_sand({500, 0}, 0)
+  end
+
+  def solve2 do
+    base_map =
+      read_file()
+      |> build_map(%{:min_x => 1_000_000, :max_x => 0, :min_y => 10_000_000, :max_y => 0})
+
+    map_with_floor =
+      -500..2000
+      |> Enum.reduce(base_map, fn x, acc_map -> Map.put(acc_map, {x, acc_map.max_y + 2}, "#") end)
+
+    map_with_floor
+    |> Map.put(:max_y, map_with_floor.max_y + 2)
+    |> step_sand({500, 0}, 0)
   end
 end
