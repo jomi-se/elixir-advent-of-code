@@ -140,7 +140,7 @@ defmodule ProboscideaVolcanium do
   end
 
   def next_valves_by_closest_sorted(cur_valve, closed_valves, time_left, valve_distances) do
-    [closest_valves | _rest] =
+    closest_valves =
       closed_valves
       |> Enum.reduce(%{}, fn valve, acc_map ->
         valve_tuple = [cur_valve.valve, valve.valve] |> Enum.sort() |> List.to_tuple()
@@ -152,15 +152,16 @@ defmodule ProboscideaVolcanium do
       |> Map.to_list()
       |> Enum.sort(fn {da, _}, {db, _} -> da < db end)
 
-    {dist, next_valves} = closest_valves
+    Enum.map(closest_valves, fn {dist, next_valves} ->
+      next_valves
+      |> Enum.map(fn valve ->
+        new_time_left = time_left - dist - 1
+        score = new_time_left * valve.rate
 
-    next_valves
-    |> Enum.map(fn valve ->
-      new_time_left = time_left - dist - 1
-      score = new_time_left * valve.rate
-
-      {valve, score, new_time_left}
+        {valve, score, new_time_left}
+      end)
     end)
+    |> List.flatten()
   end
 
   def solve_tsp_by_closest_neighbour(
@@ -192,16 +193,13 @@ defmodule ProboscideaVolcanium do
         cur_score,
         acc_scores
       ) do
-    IO.inspect({cur_valve, closed_valves, time_left}, label: "tsp step solve")
 
     next_valves =
       next_valves_by_closest_sorted(cur_valve, closed_valves, time_left, valve_distances)
-      |> IO.inspect()
 
     next_valves
     |> Enum.reduce(acc_scores, fn {next_valve, score, new_time_left}, acc ->
       next_closed_valves = closed_valves |> Enum.filter(&(&1.valve != next_valve.valve))
-      IO.inspect({next_closed_valves, next_valve}, label: "next closed and next valve")
 
       solve_tsp_by_closest_neighbour(
         next_valve,
@@ -220,7 +218,6 @@ defmodule ProboscideaVolcanium do
     res =
       all_valves
       |> get_valves_with_rates_sorted()
-      |> IO.inspect()
 
     graph =
       all_valves
@@ -229,7 +226,6 @@ defmodule ProboscideaVolcanium do
 
     valve_tuples =
       pick_two_list([Map.fetch!(graph, "AA") | res])
-      |> IO.inspect()
 
     valve_distances_map =
       valve_tuples
@@ -240,9 +236,8 @@ defmodule ProboscideaVolcanium do
         {{valve_name1, valve_name2}, get_dist_between_valves(valve1, valve2, graph)}
       end)
       |> Map.new()
-      |> IO.inspect()
 
     solve_tsp_by_closest_neighbour(Map.fetch!(graph, "AA"), res, 30, valve_distances_map, 0, [])
-    |> Enum.sort()
+    |> Enum.sort(:desc)
   end
 end
