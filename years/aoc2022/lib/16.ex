@@ -170,9 +170,9 @@ defmodule ProboscideaVolcanium do
         _time_left,
         _valve_distances,
         cur_score,
-        acc_scores
+        acc_max_score
       ),
-      do: [cur_score | acc_scores]
+      do: max(cur_score, acc_max_score)
 
   def solve_tsp_by_closest_neighbour(
         _cur_valve,
@@ -180,10 +180,10 @@ defmodule ProboscideaVolcanium do
         time_left,
         _valve_distances,
         cur_score,
-        acc_scores
+        acc_max_score
       )
       when time_left <= 0,
-      do: [cur_score | acc_scores]
+      do: max(cur_score, acc_max_score)
 
   def solve_tsp_by_closest_neighbour(
         cur_valve,
@@ -191,14 +191,13 @@ defmodule ProboscideaVolcanium do
         time_left,
         valve_distances,
         cur_score,
-        acc_scores
+        acc_max_score
       ) do
-
     next_valves =
       next_valves_by_closest_sorted(cur_valve, closed_valves, time_left, valve_distances)
 
     next_valves
-    |> Enum.reduce(acc_scores, fn {next_valve, score, new_time_left}, acc ->
+    |> Enum.reduce(acc_max_score, fn {next_valve, score, new_time_left}, acc ->
       next_closed_valves = closed_valves |> Enum.filter(&(&1.valve != next_valve.valve))
 
       solve_tsp_by_closest_neighbour(
@@ -224,8 +223,7 @@ defmodule ProboscideaVolcanium do
       |> Enum.map(&{&1.valve, &1})
       |> Map.new()
 
-    valve_tuples =
-      pick_two_list([Map.fetch!(graph, "AA") | res])
+    valve_tuples = pick_two_list([Map.fetch!(graph, "AA") | res])
 
     valve_distances_map =
       valve_tuples
@@ -237,7 +235,198 @@ defmodule ProboscideaVolcanium do
       end)
       |> Map.new()
 
-    solve_tsp_by_closest_neighbour(Map.fetch!(graph, "AA"), res, 30, valve_distances_map, 0, [])
-    |> Enum.sort(:desc)
+    solve_tsp_by_closest_neighbour(Map.fetch!(graph, "AA"), res, 30, valve_distances_map, 0, 0)
+  end
+
+  def solve_tsp_with_elephant(
+        _cur_valve_me,
+        _cur_valve_elephant,
+        [],
+        _time_left_me,
+        _time_left_elephant,
+        _valve_distances,
+        cur_score,
+        acc_max_score
+      ),
+      do: max(cur_score, acc_max_score)
+
+  def solve_tsp_with_elephant(
+        _cur_valve_me,
+        _cur_valve_elephant,
+        _closed_valves,
+        time_left_me,
+        time_left_elephant,
+        _valve_distances,
+        cur_score,
+        acc_max_score
+      )
+      when time_left_elephant <= 0 and time_left_me <= 0,
+      do: max(cur_score, acc_max_score)
+
+  def solve_tsp_with_elephant(
+        _cur_valve_me,
+        cur_valve_elephant,
+        closed_valves,
+        time_left_me,
+        time_left_elephant,
+        valve_distances,
+        cur_score,
+        acc_max_score
+      )
+      when time_left_me <= 0,
+      do:
+        solve_tsp_by_closest_neighbour(
+          cur_valve_elephant,
+          closed_valves,
+          time_left_elephant,
+          valve_distances,
+          cur_score,
+          acc_max_score
+        )
+
+  def solve_tsp_with_elephant(
+        cur_valve_me,
+        _cur_valve_elephant,
+        closed_valves,
+        time_left_me,
+        time_left_elephant,
+        valve_distances,
+        cur_score,
+        acc_max_score
+      )
+      when time_left_elephant <= 0,
+      do:
+        solve_tsp_by_closest_neighbour(
+          cur_valve_me,
+          closed_valves,
+          time_left_me,
+          valve_distances,
+          cur_score,
+          acc_max_score
+        )
+
+  def solve_tsp_with_elephant(
+        cur_valve_me,
+        cur_valve_elephant,
+        closed_valves,
+        time_left_me,
+        time_left_elephant,
+        valve_distances,
+        cur_score,
+        acc_max_score
+      ) do
+    if Enum.random(1..1000) <= 1 do
+      IO.inspect(acc_max_score, label: "max")
+    end
+
+    cond do
+      length(closed_valves) < 12 and
+          cur_score +
+            compute_bound(closed_valves, max(time_left_elephant, time_left_me)) <
+            2299 ->
+        acc_max_score
+
+      length(closed_valves) < 10 and
+          cur_score +
+            compute_bound(closed_valves, max(time_left_elephant, time_left_me)) <
+            2299 ->
+        acc_max_score
+
+      length(closed_valves) < 9 and
+          cur_score + compute_bound(closed_valves, max(time_left_elephant, time_left_me)) <
+            2299 ->
+        acc_max_score
+
+      length(closed_valves) < 5 and
+          cur_score + compute_bound(closed_valves, max(time_left_elephant, time_left_me)) <
+            2299 ->
+        acc_max_score
+
+      length(closed_valves) < 3 and
+          cur_score + compute_bound(closed_valves, max(time_left_elephant, time_left_me)) <
+            2299 ->
+        acc_max_score
+
+      true ->
+        next_valves_me =
+          next_valves_by_closest_sorted(
+            cur_valve_me,
+            closed_valves,
+            time_left_me,
+            valve_distances
+          )
+
+        next_valves_me
+        |> Enum.reduce(acc_max_score, fn {next_valve_me, score_me, new_time_left_me}, acc_me ->
+          closed_valves_for_elephant =
+            closed_valves |> Enum.filter(&(&1.valve != next_valve_me.valve))
+
+          next_valves_elephant =
+            next_valves_by_closest_sorted(
+              cur_valve_elephant,
+              closed_valves_for_elephant,
+              time_left_elephant,
+              valve_distances
+            )
+
+          next_valves_elephant
+          |> Enum.reduce(acc_me, fn {next_valve_elephant, score_elephant, new_time_left_elephant},
+                                    acc_elephant ->
+            next_closed_valves =
+              closed_valves_for_elephant |> Enum.filter(&(&1.valve != next_valve_elephant.valve))
+
+            solve_tsp_with_elephant(
+              next_valve_me,
+              next_valve_elephant,
+              next_closed_valves,
+              new_time_left_me,
+              new_time_left_elephant,
+              valve_distances,
+              cur_score + score_elephant + score_me,
+              acc_elephant
+            )
+          end)
+        end)
+    end
+  end
+
+  def compute_bound(closed_valves, time_left) do
+    Enum.reduce(closed_valves, 0, fn valve, acc -> acc + valve.rate * time_left end)
+  end
+
+  def solve2 do
+    all_valves = read_file()
+
+    res =
+      all_valves
+      |> get_valves_with_rates_sorted()
+
+    graph =
+      all_valves
+      |> Enum.map(&{&1.valve, &1})
+      |> Map.new()
+
+    valve_tuples = pick_two_list([Map.fetch!(graph, "AA") | res])
+
+    valve_distances_map =
+      valve_tuples
+      |> Enum.map(fn {valve_name1, valve_name2} ->
+        valve1 = Map.fetch!(graph, valve_name1)
+        valve2 = Map.fetch!(graph, valve_name2)
+
+        {{valve_name1, valve_name2}, get_dist_between_valves(valve1, valve2, graph)}
+      end)
+      |> Map.new()
+
+    solve_tsp_with_elephant(
+      Map.fetch!(graph, "AA"),
+      Map.fetch!(graph, "AA"),
+      res,
+      26,
+      26,
+      valve_distances_map,
+      0,
+      0
+    )
   end
 end
