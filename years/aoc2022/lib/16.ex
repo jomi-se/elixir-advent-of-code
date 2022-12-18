@@ -498,12 +498,12 @@ defmodule ProboscideaVolcanium do
       next_elephant = get_next_valve_score_info(cur_states.elephant, valve, valve_distances)
 
       [
-        {next_me.score, :me, next_me},
-        {next_elephant.score, :elephant, next_elephant} | acc_list
+        {next_me.dist, :me, next_me},
+        {next_elephant.dist, :elephant, next_elephant} | acc_list
       ]
     end)
     |> Enum.filter(fn {_score, _, next} -> next.score > 0 end)
-    |> Enum.sort(fn {sa, _, _}, {sb, _, _} -> sa > sb end)
+    |> Enum.sort(fn {sa, _, _}, {sb, _, _} -> sa < sb end)
     |> Enum.map(fn {_, type, next} -> {type, next} end)
   end
 
@@ -525,11 +525,19 @@ defmodule ProboscideaVolcanium do
         cur_score,
         acc_max_score
       ) do
-    if Enum.random(1..1000) <= 1 do
+    if Enum.random(1..100_000) <= 1 do
       IO.inspect(acc_max_score, label: "max")
     end
 
-    next_moves = next_valves_with_elephant(cur_states, closed_valves, valve_distances)
+    if map_size(closed_valves) == 14 do
+      IO.inspect(cur_states)
+    end
+
+    next_moves2 = next_valves_with_elephant(cur_states, closed_valves, valve_distances)
+
+    next_moves =
+      next_moves2
+      |> Enum.take(5)
 
     cond do
       next_moves == [] ->
