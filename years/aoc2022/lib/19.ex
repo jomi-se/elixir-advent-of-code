@@ -109,7 +109,7 @@ defmodule Geode do
                 materials_inv.ore >= blueprint.geode_robot.ore ->
               [{:geode_robot, discount_materials(:geode_robot, materials_inv, blueprint)} | acc]
 
-            materials_inv.obsidian >= blueprint.geode_robot.obsidian - 1 ->
+            materials_inv.obsidian >= blueprint.geode_robot.obsidian ->
               [{nil, materials_inv} | acc]
 
             true ->
@@ -118,6 +118,9 @@ defmodule Geode do
 
         :obsidian_robot, acc ->
           cond do
+            Enum.find(acc, fn {type, _} -> type == :geode_robot end) != nil ->
+              acc
+
             robot_inv.obsidian_robot >= blueprint.geode_robot.obsidian ->
               acc
 
@@ -140,13 +143,17 @@ defmodule Geode do
 
         :clay_robot, acc ->
           cond do
-            Enum.find(acc, fn {type, _} -> type == :obsidian_robot end) != nil ->
+            Enum.find(acc, fn {type, _} -> type == :geode_robot end) != nil ->
               acc
+
+            # Enum.find(acc, fn {type, _} -> type == :obsidian_robot end) != nil ->
+            #   acc
 
             robot_inv.clay_robot >= blueprint.obsidian_robot.clay ->
               acc
 
-            materials_inv.ore >= blueprint.clay_robot.ore ->
+            materials_inv.ore >= blueprint.clay_robot.ore and
+                materials_inv.ore < blueprint.clay_robot.ore * 2 ->
               [
                 {:clay_robot, discount_materials(:clay_robot, materials_inv, blueprint)}
                 | acc
@@ -164,13 +171,17 @@ defmodule Geode do
             end)
 
           cond do
-            Enum.find(acc, fn {type, _} -> type == :obsidian_robot end) != nil ->
+            Enum.find(acc, fn {type, _} -> type == :geode_robot end) != nil ->
               acc
+
+            # Enum.find(acc, fn {type, _} -> type == :obsidian_robot end) != nil ->
+            #   acc
 
             robot_inv.ore_robot >= max_ore_req ->
               acc
 
-            materials_inv.ore >= blueprint.ore_robot.ore ->
+            materials_inv.ore >= blueprint.ore_robot.ore and
+                materials_inv.ore < blueprint.ore_robot.ore * 2 ->
               [
                 {:ore_robot, discount_materials(:ore_robot, materials_inv, blueprint)}
                 | acc
@@ -196,10 +207,12 @@ defmodule Geode do
         _blueprint,
         cur_min,
         limit,
-        acc_max_geodes
+        {acc_max_geodes, acc_max_geodes_per_min}
       )
       when limit == cur_min,
-      do: max(materials_inv.geode, acc_max_geodes)
+      do:
+        {max(materials_inv.geode, acc_max_geodes),
+         Map.update(acc_max_geodes_per_min, cur_min, 0, fn v -> max(v, materials_inv.geode) end)}
 
   def step_robots_with_blueprint(
         robot_inv,
@@ -207,44 +220,56 @@ defmodule Geode do
         blueprint,
         cur_min,
         limit,
-        acc_max_geodes
+        {acc_max_geodes, acc_max_geodes_per_min}
       ) do
-    # IO.inspect(binding(), label: cur_min)
+    cond do
+      materials_inv.geode + 8 < Map.get(acc_max_geodes_per_min, cur_min, 0) ->
+        {acc_max_geodes, acc_max_geodes_per_min}
 
-    # if Enum.random(1..100_000) <= 1 do
-    #   IO.inspect(acc_max_geodes, label: "max geodes")
-    # end
+      true ->
+        # IO.inspect(binding(), label: cur_min)
 
-    next_robots = get_possible_next_robot_v2(robot_inv, materials_inv, blueprint)
-    # |> IO.inspect(label: "next robots")
+        # if Enum.random(1..100_000) <= 1 do
+        #   IO.inspect(acc_max_geodes, label: "max geodes")
+        # end
 
-    Enum.reduce(next_robots, acc_max_geodes, fn
-      {nil, materials_inv}, acc ->
-        materials_inv_after_robot = robot_get_materials(robot_inv, materials_inv)
+        next_robots = get_possible_next_robot_v2(robot_inv, materials_inv, blueprint)
+        # |> IO.inspect(label: "next robots")
 
-        step_robots_with_blueprint(
-          robot_inv,
-          materials_inv_after_robot,
-          blueprint,
-          cur_min + 1,
-          limit,
-          acc
-        )
+        Enum.reduce(next_robots, {acc_max_geodes, acc_max_geodes_per_min}, fn
+          {nil, materials_inv}, {acc_count, acc_per_min} ->
+            materials_inv_after_robot = robot_get_materials(robot_inv, materials_inv)
 
-      {robot, next_materials_inv}, acc ->
-        next_robot_inv = Map.update!(robot_inv, robot, fn v -> v + 1 end)
+            step_robots_with_blueprint(
+              robot_inv,
+              materials_inv_after_robot,
+              blueprint,
+              cur_min + 1,
+              limit,
+              {acc_count,
+               Map.update(acc_per_min, cur_min, 0, fn v ->
+                 max(v, materials_inv_after_robot.geode)
+               end)}
+            )
 
-        materials_inv_after_robot = robot_get_materials(robot_inv, next_materials_inv)
+          {robot, next_materials_inv}, {acc_count, acc_per_min} ->
+            next_robot_inv = Map.update!(robot_inv, robot, fn v -> v + 1 end)
 
-        step_robots_with_blueprint(
-          next_robot_inv,
-          materials_inv_after_robot,
-          blueprint,
-          cur_min + 1,
-          limit,
-          acc
-        )
-    end)
+            materials_inv_after_robot = robot_get_materials(robot_inv, next_materials_inv)
+
+            step_robots_with_blueprint(
+              next_robot_inv,
+              materials_inv_after_robot,
+              blueprint,
+              cur_min + 1,
+              limit,
+              {acc_count,
+               Map.update(acc_per_min, cur_min, 0, fn v ->
+                 max(v, materials_inv_after_robot.geode)
+               end)}
+            )
+        end)
+    end
   end
 
   def solve1 do
@@ -266,10 +291,46 @@ defmodule Geode do
 
     Enum.map(blueprints_parsed, fn blueprint ->
       IO.inspect(blueprint.id)
-      {blueprint.id, step_robots_with_blueprint(robot_inv, materials_inv, blueprint, 0, 24, 0)}
+
+      {geode_count, _} =
+        step_robots_with_blueprint(robot_inv, materials_inv, blueprint, 0, 24, {0, %{}})
+
+      {blueprint.id, geode_count}
     end)
     |> IO.inspect()
     |> Enum.map(fn {id, val} -> id * val end)
     |> Enum.sum()
+  end
+
+  def solve2 do
+    blueprints_parsed = read_file()
+
+    robot_inv = %{
+      ore_robot: 1,
+      clay_robot: 0,
+      obsidian_robot: 0,
+      geode_robot: 0
+    }
+
+    materials_inv = %{
+      ore: 0,
+      clay: 0,
+      obsidian: 0,
+      geode: 0
+    }
+
+    [v1, v2, v3] =
+      Enum.map(blueprints_parsed, fn blueprint ->
+        IO.inspect(blueprint.id)
+
+        {geode_count, _} =
+          step_robots_with_blueprint(robot_inv, materials_inv, blueprint, 0, 32, {0, %{}})
+
+        {blueprint.id, geode_count}
+      end)
+      |> IO.inspect()
+      |> Enum.map(fn {_id, val} -> val end)
+
+    v1 * v2 * v3
   end
 end
