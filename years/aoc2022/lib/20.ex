@@ -24,9 +24,9 @@ defmodule CoordsDecrypt do
   end
 
   def move_entry({0, _entry_orig_pos}, reordered_list, _list_size),
-    do:
-      reordered_list
-      # |> IO.inspect(label: "no move")
+    do: reordered_list
+
+  # |> IO.inspect(label: "no move")
 
   def move_entry({entry_num, entry_orig_pos}, reordered_list, list_size) do
     cur_pos =
@@ -72,6 +72,7 @@ defmodule CoordsDecrypt do
             head_list ++ f ++ [{num, orig_pos} | r]
         end
     end
+
     # |> IO.inspect(label: "moved")
   end
 
@@ -91,6 +92,32 @@ defmodule CoordsDecrypt do
     list_size = length(nums)
 
     res = move_nums_once(nums_with_indexes, nums_with_indexes, list_size)
+
+    zero_idx = Enum.find_index(res, fn {v, _} -> v == 0 end)
+
+    [1000, 2000, 3000]
+    |> Enum.map(&Enum.at(res, rem(zero_idx + &1, list_size)))
+    |> Enum.map(fn {n, _} -> n end)
+    |> Enum.sum()
+  end
+
+  def solve2 do
+    nums =
+      read_file()
+      |> Enum.map(&(&1 * 811_589_153))
+
+    nums_with_indexes =
+      nums
+      |> Enum.with_index()
+
+    list_size = length(nums)
+
+    res = 1..10
+    |>Enum.reduce(nums_with_indexes, fn cur_i, acc ->
+      move_nums_once(nums_with_indexes, acc, list_size)
+      |>IO.inspect(label: cur_i)
+
+    end)
 
     zero_idx = Enum.find_index(res, fn {v, _} -> v == 0 end)
 
